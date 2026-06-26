@@ -190,7 +190,7 @@ jobs:
             echo ""
 
             # Features
-            FEATURES=$(git log $RANGE --pretty=format:"%s" 2>/dev/null | grep -E "^feat(\(.*\))?: " | sed 's/^feat[^:]*: //')
+            FEATURES=$(git log $RANGE --pretty=format:"%s" 2>/dev/null | grep -E "^feat(\(.*\))?: " | sed 's/^feat[^:]*: //' || true)
             if [ -n "$FEATURES" ]; then
               echo "### ✨ Neue Features"
               echo "$FEATURES" | while IFS= read -r line; do echo "- $line"; done
@@ -198,7 +198,7 @@ jobs:
             fi
 
             # Fixes
-            FIXES=$(git log $RANGE --pretty=format:"%s" 2>/dev/null | grep -E "^fix(\(.*\))?: " | sed 's/^fix[^:]*: //')
+            FIXES=$(git log $RANGE --pretty=format:"%s" 2>/dev/null | grep -E "^fix(\(.*\))?: " | sed 's/^fix[^:]*: //' || true)
             if [ -n "$FIXES" ]; then
               echo "### 🐛 Bugfixes"
               echo "$FIXES" | while IFS= read -r line; do echo "- $line"; done
@@ -206,7 +206,7 @@ jobs:
             fi
 
             # Improvements
-            IMPR=$(git log $RANGE --pretty=format:"%s" 2>/dev/null | grep -E "^(chore|refactor|perf|style|docs)(\(.*\))?: " | sed 's/^[a-z]*[^:]*: //')
+            IMPR=$(git log $RANGE --pretty=format:"%s" 2>/dev/null | grep -E "^(chore|refactor|perf|style|docs)(\(.*\))?: " | sed 's/^[a-z]*[^:]*: //' || true)
             if [ -n "$IMPR" ]; then
               echo "### 🔧 Verbesserungen"
               echo "$IMPR" | while IFS= read -r line; do echo "- $line"; done
@@ -214,7 +214,7 @@ jobs:
             fi
 
             # Other commits (not matching conventional format)
-            OTHERS=$(git log $RANGE --pretty=format:"%s" 2>/dev/null | grep -vE "^(feat|fix|chore|refactor|perf|style|docs)(\(.*\))?: " | grep -v "^Merge ")
+            OTHERS=$(git log $RANGE --pretty=format:"%s" 2>/dev/null | grep -vE "^(feat|fix|chore|refactor|perf|style|docs)(\(.*\))?: " | grep -v "^Merge " || true)
             if [ -n "$OTHERS" ]; then
               echo "### 📦 Weitere Änderungen"
               echo "$OTHERS" | while IFS= read -r line; do echo "- $line"; done
