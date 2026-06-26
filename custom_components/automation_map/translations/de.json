@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Automation Map einrichten",
+        "description": "Fügt die Automation Map als Sidebar-Panel hinzu. Es werden keine weiteren Einstellungen benötigt."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Es ist bereits eine Instanz von Automation Map installiert."
+    }
+  }
+}

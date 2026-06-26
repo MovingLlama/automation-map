@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Automation Map",
+        "description": "Adds Automation Map as a sidebar panel. No further configuration needed."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Only a single instance of Automation Map is allowed."
+    }
+  }
+}
