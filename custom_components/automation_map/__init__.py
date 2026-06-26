@@ -39,6 +39,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
     ])
 
+    # Fetch version from manifest for cache busting
+    integration = await async_get_integration(hass, DOMAIN)
+    version = integration.version
+
     # Register the sidebar panel
     async_register_built_in_panel(
         hass,
@@ -49,7 +53,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         config={
             "_panel_custom": {
                 "name": "automation-map-panel",
-                "js_url": f"/api/{DOMAIN}/static/automation-map-panel.js",
+                "js_url": f"/api/{DOMAIN}/static/automation-map-panel.js?v={version}",
                 "embed_iframe": False,
                 "trust_external": False,
             }

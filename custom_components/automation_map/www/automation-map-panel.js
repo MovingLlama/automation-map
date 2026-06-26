@@ -487,10 +487,43 @@ const STYLES = `
     gap: 12px;
     color: var(--secondary-text-color, #64748b);
     font-size: 14px;
-    pointer-events: none;
+  .am-no-data svg { width: 48px; height: 48px; opacity: 0.3; }
+
+  /* ─── Zoom Controls ────────────────────────────────────── */
+  .am-zoom-controls {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    z-index: 100;
   }
 
-  .am-no-data svg { width: 48px; height: 48px; opacity: 0.3; }
+  .am-zoom-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid var(--divider-color, rgba(255,255,255,0.08));
+    background: var(--card-background-color, rgba(30,41,59,0.9));
+    color: var(--primary-text-color, #f1f5f9);
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transition: all 0.15s ease;
+    user-select: none;
+  }
+
+  .am-zoom-btn:hover {
+    background: var(--primary-color, #38bdf8);
+    color: white;
+    transform: scale(1.05);
+  }
 `;
 
 // ─── Color Palette ─────────────────────────────────────────────────────────
@@ -695,6 +728,12 @@ class AutomationMapPanel extends HTMLElement {
         <div class="am-body">
           <div id="am-cy"></div>
 
+          <div class="am-zoom-controls">
+            <button class="am-zoom-btn" id="btn-zoom-in" title="Vergrößern">+</button>
+            <button class="am-zoom-btn" id="btn-zoom-out" title="Verkleinern">−</button>
+            <button class="am-zoom-btn" id="btn-zoom-fit" title="Übersicht">⛶</button>
+          </div>
+
           <div class="am-loading" id="am-loading">
             <div class="am-spinner"></div>
             <div class="am-loading-text" id="am-loading-text">Lade Daten aus Home Assistant…</div>
@@ -743,6 +782,29 @@ class AutomationMapPanel extends HTMLElement {
     root.getElementById('btn-layout')?.addEventListener('click', () => this._runLayout());
     root.getElementById('btn-refresh')?.addEventListener('click', () => this._loadData());
 
+    // Zoom Controls
+    root.getElementById('btn-zoom-in')?.addEventListener('click', () => {
+      if (!this._cy) return;
+      const currentZoom = this._cy.zoom();
+      this._cy.zoom({
+        level: currentZoom * 1.2,
+        renderedPosition: { x: this._cy.width() / 2, y: this._cy.height() / 2 }
+      });
+    });
+
+    root.getElementById('btn-zoom-out')?.addEventListener('click', () => {
+      if (!this._cy) return;
+      const currentZoom = this._cy.zoom();
+      this._cy.zoom({
+        level: currentZoom / 1.2,
+        renderedPosition: { x: this._cy.width() / 2, y: this._cy.height() / 2 }
+      });
+    });
+
+    root.getElementById('btn-zoom-fit')?.addEventListener('click', () => {
+      this._cy?.fit(undefined, 60);
+    });
+
     ['filter-automation', 'filter-entity', 'filter-helper'].forEach(id => {
       root.getElementById(id)?.addEventListener('click', (e) => {
         const type = e.currentTarget.dataset.type;
@@ -753,14 +815,14 @@ class AutomationMapPanel extends HTMLElement {
           this._filterTypes.add(type);
           e.currentTarget.classList.add('active');
         }
-        this._applyFilters();
+        this._applyFilters(false); // Immediate layout on filter toggle
       });
     });
 
     const searchInput = root.getElementById('am-search-input');
     searchInput?.addEventListener('input', (e) => {
       this._searchTerm = e.target.value.toLowerCase();
-      this._applyFilters();
+      this._applyFilters(true); // Debounced layout on typing
     });
   }
 
@@ -1263,8 +1325,10 @@ class AutomationMapPanel extends HTMLElement {
   _runLayout() {
     if (!this._cy || this._cy.nodes().length === 0) return;
 
-    // Use compound layout (cola or cose-bilkent with compounds)
-    // Fallback to cose if extensions not loaded
+    // Only run layout on visible elements (excluding hidden nodes and empty groups)
+    const visibleElements = this._cy.elements().not('.hidden');
+    if (visibleElements.nodes().length === 0) return;
+
     const opts = {
       name: 'cose',
       animate: true,
@@ -1286,11 +1350,11 @@ class AutomationMapPanel extends HTMLElement {
       randomize: false,
     };
 
-    this._cy.layout(opts).run();
+    visibleElements.layout(opts).run();
   }
 
   // ─── Filters ──────────────────────────────────────────────────────────────
-  _applyFilters() {
+  _applyFilters(debounced = false) {
     if (!this._cy) return;
     const search = this._searchTerm;
     const showAuto = this._filterTypes.has('automation');
@@ -1335,6 +1399,20 @@ class AutomationMapPanel extends HTMLElement {
         edge.removeClass('hidden');
       }
     });
+
+    // Auto-layout remaining elements
+    if (debounced) {
+      this._debouncedLayout();
+    } else {
+      this._runLayout();
+    }
+  }
+
+  _debouncedLayout() {
+    clearTimeout(this._layoutTimeout);
+    this._layoutTimeout = setTimeout(() => {
+      this._runLayout();
+    }, 400);
   }
 
   // ─── Detail Panel ─────────────────────────────────────────────────────────
