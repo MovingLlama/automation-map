@@ -1,5 +1,6 @@
 {
   "domain": "automation_map",
+  "config_flow": true,
   "name": "Automation Map",
   "version": "1.0.0",
   "documentation": "https://github.com/MovingLlama/automation-map",
