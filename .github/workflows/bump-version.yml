@@ -165,4 +165,97 @@ jobs:
           git push origin "${TAG}"
 
           echo "✅ Committed and tagged ${TAG}"
-          echo "🚀 Release workflow will start automatically for tag ${TAG}"
+
+      - name: 📋 Generate Changelog
+        if: steps.skip_check.outputs.skip == 'false'
+        run: |
+          NEW_VERSION="${{ steps.new_version.outputs.new }}"
+          TAG="${{ steps.new_version.outputs.tag }}"
+          
+          # Get the previous tag for changelog range
+          PREV_TAG=$(git tag --sort=-version:refname | grep -v "^${TAG}$" | head -1)
+          echo "Previous tag: ${PREV_TAG:-<none>}"
+
+          if [ -z "$PREV_TAG" ]; then
+            RANGE="HEAD"
+          else
+            RANGE="${PREV_TAG}..${TAG}"
+          fi
+
+          echo "Generating changelog for range: $RANGE"
+
+          # Build changelog from conventional commits
+          {
+            echo "## 📝 Was ist neu in ${TAG}?"
+            echo ""
+
+            # Features
+            FEATURES=$(git log $RANGE --pretty=format:"%s" 2>/dev/null | grep -E "^feat(\(.*\))?: " | sed 's/^feat[^:]*: //')
+            if [ -n "$FEATURES" ]; then
+              echo "### ✨ Neue Features"
+              echo "$FEATURES" | while IFS= read -r line; do echo "- $line"; done
+              echo ""
+            fi
+
+            # Fixes
+            FIXES=$(git log $RANGE --pretty=format:"%s" 2>/dev/null | grep -E "^fix(\(.*\))?: " | sed 's/^fix[^:]*: //')
+            if [ -n "$FIXES" ]; then
+              echo "### 🐛 Bugfixes"
+              echo "$FIXES" | while IFS= read -r line; do echo "- $line"; done
+              echo ""
+            fi
+
+            # Improvements
+            IMPR=$(git log $RANGE --pretty=format:"%s" 2>/dev/null | grep -E "^(chore|refactor|perf|style|docs)(\(.*\))?: " | sed 's/^[a-z]*[^:]*: //')
+            if [ -n "$IMPR" ]; then
+              echo "### 🔧 Verbesserungen"
+              echo "$IMPR" | while IFS= read -r line; do echo "- $line"; done
+              echo ""
+            fi
+
+            # Other commits (not matching conventional format)
+            OTHERS=$(git log $RANGE --pretty=format:"%s" 2>/dev/null | grep -vE "^(feat|fix|chore|refactor|perf|style|docs)(\(.*\))?: " | grep -v "^Merge ")
+            if [ -n "$OTHERS" ]; then
+              echo "### 📦 Weitere Änderungen"
+              echo "$OTHERS" | while IFS= read -r line; do echo "- $line"; done
+              echo ""
+            fi
+
+            echo ""
+            echo "---"
+            if [ -n "$PREV_TAG" ]; then
+              echo "**Full diff**: [$PREV_TAG...${TAG}](https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${TAG})"
+            fi
+
+          } > CHANGELOG_BODY.md
+
+          cat CHANGELOG_BODY.md
+
+      - name: 📦 Package Integration
+        if: steps.skip_check.outputs.skip == 'false'
+        run: |
+          VERSION="${{ steps.new_version.outputs.new }}"
+          ARCHIVE="automation_map_v${VERSION}.zip"
+
+          # Create ZIP of the custom_components folder
+          cd custom_components
+          zip -r "../${ARCHIVE}" automation_map/
+          cd ..
+
+          echo "✅ Created ${ARCHIVE} ($(du -sh ${ARCHIVE} | cut -f1))"
+
+      - name: 🚀 Create GitHub Release
+        if: steps.skip_check.outputs.skip == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.new_version.outputs.tag }}
+          name: "🗺️ Automation Map ${{ steps.new_version.outputs.tag }}"
+          body_path: CHANGELOG_BODY.md
+          files: |
+            automation_map_v${{ steps.new_version.outputs.new }}.zip
+          draft: false
+          prerelease: ${{ contains(steps.new_version.outputs.tag, '-') }}
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
