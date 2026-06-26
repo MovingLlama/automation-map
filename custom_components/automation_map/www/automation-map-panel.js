@@ -919,30 +919,36 @@ class AutomationMapPanel extends HTMLElement {
         {
           selector: 'edge',
           style: {
-            'width': 2.0,
+            'width': 3.5,
             'line-color': 'data(edgeColor)',
             'target-arrow-color': 'data(edgeColor)',
             'target-arrow-shape': 'triangle',
             'curve-style': 'bezier',
-            'arrow-scale': 0.8,
-            'opacity': 0.8,
+            'arrow-scale': 0.9,
+            'opacity': 0.95,
           }
         },
         {
           selector: 'edge[edgeType="structure"]',
           style: {
-            'width': 1.2,
-            'line-color': '#334155',
+            'width': 1.5,
+            'line-color': '#475569',
             'line-style': 'dashed',
             'target-arrow-shape': 'none',
-            'opacity': 0.6,
+            'opacity': 0.5,
           }
         },
         {
           selector: 'edge[edgeType="condition"]',
           style: {
-            'width': 1.5,
+            'width': 2.5,
             'line-style': 'dotted',
+            'line-color': 'data(edgeColor)',
+            'target-arrow-color': 'data(edgeColor)',
+            'target-arrow-shape': 'triangle',
+            'curve-style': 'bezier',
+            'arrow-scale': 0.9,
+            'opacity': 0.95,
           }
         },
         {
@@ -1151,11 +1157,25 @@ class AutomationMapPanel extends HTMLElement {
       return null;
     };
 
-    // ─── Automation nodes ───────────────────────────────────────
+    // ─── Pre-scan all automations to collect connected entities ───
     const automationStates = Object.values(this._stateCache).filter(s =>
       s.entity_id.startsWith('automation.')
     );
 
+    automationStates.forEach(state => {
+      const entityId = state.entity_id;
+      const config = this._automationConfigs[entityId];
+      if (config) {
+        const referenced = extractEntityIds(config);
+        referenced.forEach(entId => {
+          if (this._stateCache[entId]) {
+            connectedEntityIds.add(entId);
+          }
+        });
+      }
+    });
+
+    // ─── Add Automation nodes & draw edges ───────────────────────
     automationStates.forEach(state => {
       const entityId = state.entity_id;
       const friendly = state.attributes?.friendly_name || entityId;
@@ -1196,92 +1216,61 @@ class AutomationMapPanel extends HTMLElement {
         }
       });
 
-      // Extract and link trigger entities
-      if (config?.trigger) {
-        const triggers = Array.isArray(config.trigger) ? config.trigger : [config.trigger];
-        triggers.forEach((trig, i) => {
-          const trigEntityIds = [];
-          if (trig.entity_id) {
-            (Array.isArray(trig.entity_id) ? trig.entity_id : [trig.entity_id]).forEach(id => trigEntityIds.push(id));
-          }
-          trigEntityIds.forEach(trigEnt => {
+      // Extract entities and draw functional flow edges
+      if (config) {
+        // Triggers (Vibrant Neon Cyan)
+        if (config.trigger) {
+          extractEntityIds({ trigger: config.trigger }).forEach(trigEnt => {
             if (this._stateCache[trigEnt]) {
-              connectedEntityIds.add(trigEnt);
               const targetNodeId = `node-${trigEnt.replace(/\./g, '_')}`;
               edges.push({
                 data: {
-                  id: `edge-trigger-${entityId}-${trigEnt}-${i}`,
+                  id: `edge-trigger-${entityId}-${trigEnt}`,
                   source: targetNodeId,
                   target: nodeId,
-                  edgeColor: '#0ea5e9',
+                  edgeColor: '#00f0ff',
                   edgeType: 'trigger',
                 }
               });
             }
           });
-        });
-      }
+        }
 
-      // Extract and link condition entities
-      if (config?.condition) {
-        const conditions = Array.isArray(config.condition) ? config.condition : [config.condition];
-        conditions.forEach((cond, i) => {
-          const condEntityIds = [];
-          const scanCondition = (c) => {
-            if (!c) return;
-            if (c.entity_id) {
-              (Array.isArray(c.entity_id) ? c.entity_id : [c.entity_id]).forEach(id => condEntityIds.push(id));
-            }
-            if (c.conditions) {
-              c.conditions.forEach(scanCondition);
-            }
-          };
-          scanCondition(cond);
-
-          condEntityIds.forEach(condEnt => {
+        // Conditions (Vibrant Neon Orange)
+        if (config.condition) {
+          extractEntityIds({ condition: config.condition }).forEach(condEnt => {
             if (this._stateCache[condEnt]) {
-              connectedEntityIds.add(condEnt);
               const targetNodeId = `node-${condEnt.replace(/\./g, '_')}`;
               edges.push({
                 data: {
-                  id: `edge-condition-${entityId}-${condEnt}-${i}`,
+                  id: `edge-condition-${entityId}-${condEnt}`,
                   source: targetNodeId,
                   target: nodeId,
-                  edgeColor: '#64748b',
+                  edgeColor: '#ffaa00',
                   edgeType: 'condition',
                 }
               });
             }
           });
-        });
-      }
+        }
 
-      // Extract action targets
-      if (config?.action) {
-        const actions = Array.isArray(config.action) ? config.action : [config.action];
-        actions.forEach((act, i) => {
-          if (!act) return;
-          const targetIds = [];
-          const target = act.target?.entity_id;
-          if (target) {
-            (Array.isArray(target) ? target : [target]).forEach(id => targetIds.push(id));
-          }
-          targetIds.forEach(targEnt => {
+        // Actions (Vibrant Neon Magenta)
+        if (config.action) {
+          extractEntityIds({ action: config.action }).forEach(targEnt => {
             if (this._stateCache[targEnt]) {
-              connectedEntityIds.add(targEnt);
               const targetNodeId = `node-${targEnt.replace(/\./g, '_')}`;
               edges.push({
                 data: {
-                  id: `edge-action-${entityId}-${targEnt}-${i}`,
+                  id: `edge-action-${entityId}-${targEnt}`,
                   source: nodeId,
                   target: targetNodeId,
-                  edgeColor: '#a78bfa',
+                  edgeColor: '#d946ef',
                   edgeType: 'action',
                 }
               });
             }
           });
-        });
+        }
       }
     });
 
