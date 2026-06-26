@@ -22,8 +22,8 @@ const STYLES = `
     flex-direction: column;
     width: 100%;
     height: 100vh;
-    background: var(--primary-background-color, #111827);
-    color: var(--primary-text-color, #f1f5f9);
+    background: #0f172a;
+    color: #f1f5f9;
     position: relative;
   }
 
@@ -37,9 +37,11 @@ const STYLES = `
     min-height: 56px;
     height: auto;
     flex-shrink: 0;
-    background: var(--app-header-background-color, #1e293b);
-    border-bottom: 1px solid var(--divider-color, rgba(255,255,255,0.08));
+    background: #1e293b;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
     z-index: 100;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+  }
     box-shadow: 0 2px 12px rgba(0,0,0,0.25);
   }
 
@@ -162,8 +164,8 @@ const STYLES = `
   .am-detail {
     width: 360px;
     flex-shrink: 0;
-    background: var(--card-background-color, #1e293b);
-    border-left: 1px solid var(--divider-color, rgba(255,255,255,0.08));
+    background: #1e293b;
+    border-left: 1px solid rgba(255,255,255,0.08);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -869,7 +871,7 @@ class AutomationMapPanel extends HTMLElement {
             'border-color': 'data(borderColor)',
             'border-width': 2,
             'label': 'data(label)',
-            'color': 'var(--primary-text-color, #f1f5f9)',
+            'color': '#cbd5e1',
             'font-size': '11px',
             'text-valign': 'bottom',
             'text-halign': 'center',
@@ -884,22 +886,19 @@ class AutomationMapPanel extends HTMLElement {
           }
         },
         {
-          selector: 'node[?isGroup]',
+          selector: 'node[nodeType="core"]',
           style: {
-            'background-color': 'rgba(255,255,255,0.02)',
-            'border-color': 'rgba(255,255,255,0.08)',
-            'border-width': 1,
-            'border-style': 'dashed',
-            'label': 'data(label)',
-            'color': 'var(--secondary-text-color, #64748b)',
             'font-size': '13px',
             'font-weight': 'bold',
-            'text-valign': 'top',
-            'text-halign': 'center',
-            'text-margin-y': -8,
-            'shape': 'roundrectangle',
-            'text-wrap': 'none',
-            'padding': '20px',
+            'text-margin-y': 6,
+          }
+        },
+        {
+          selector: 'node[nodeType="area"]',
+          style: {
+            'font-size': '12px',
+            'font-weight': 'bold',
+            'text-margin-y': 5,
           }
         },
         {
@@ -920,23 +919,30 @@ class AutomationMapPanel extends HTMLElement {
         {
           selector: 'edge',
           style: {
-            'width': 1.5,
+            'width': 2.0,
             'line-color': 'data(edgeColor)',
             'target-arrow-color': 'data(edgeColor)',
             'target-arrow-shape': 'triangle',
             'curve-style': 'bezier',
             'arrow-scale': 0.8,
-            'opacity': 0.7,
+            'opacity': 0.8,
           }
         },
         {
-          selector: 'edge[label]',
+          selector: 'edge[edgeType="structure"]',
           style: {
-            'label': 'data(label)',
-            'font-size': '9px',
-            'color': 'var(--secondary-text-color, #64748b)',
-            'text-rotation': 'autorotate',
-            'text-background-color': 'transparent',
+            'width': 1.2,
+            'line-color': '#334155',
+            'line-style': 'dashed',
+            'target-arrow-shape': 'none',
+            'opacity': 0.6,
+          }
+        },
+        {
+          selector: 'edge[edgeType="condition"]',
+          style: {
+            'width': 1.5,
+            'line-style': 'dotted',
           }
         },
         {
@@ -1088,6 +1094,7 @@ class AutomationMapPanel extends HTMLElement {
     const edges = [];
     const addedNodes = new Set();
     const connectedEntityIds = new Set();
+    const areasWithChildren = new Set();
 
     // Helper: add a node safely
     const addNode = (id, data) => {
@@ -1096,18 +1103,42 @@ class AutomationMapPanel extends HTMLElement {
       nodes.push({ data: { id, ...data } });
     };
 
-    // ─── Area group nodes ───────────────────────────────────────
+    // 1. Add Central HA Node
+    addNode('homeassistant', {
+      label: '🏠 Home Assistant',
+      nodeType: 'core',
+      bgColor: '#0284c7',
+      borderColor: '#38bdf8',
+      textColor: '#e2e8f0',
+      shape: 'ellipse',
+      size: 60,
+    });
+
+    // 2. Add Area Nodes
     const areaIds = Object.keys(this._areas);
     areaIds.forEach(areaId => {
       const area = this._areas[areaId];
-      addNode(`area-${areaId}`, {
-        label: area.name,
-        isGroup: true,
-        areaId,
+      const areaNodeId = `node-area-${areaId}`;
+      addNode(areaNodeId, {
+        label: `📍 ${area.name}`,
+        nodeType: 'area',
+        bgColor: '#1e293b',
+        borderColor: '#475569',
+        textColor: '#cbd5e1',
+        shape: 'hexagon',
+        size: 48,
       });
     });
-    // "No area" group
-    addNode('area-none', { label: '🏠 Ohne Bereich', isGroup: true, areaId: null });
+    // "No area" node
+    addNode('node-area-none', {
+      label: '🏠 Ohne Bereich',
+      nodeType: 'area',
+      bgColor: '#1e293b',
+      borderColor: '#475569',
+      textColor: '#cbd5e1',
+      shape: 'hexagon',
+      size: 48,
+    });
 
     // ─── Helper to get area for entity ─────────────────────────
     const getEntityArea = (entityId) => {
@@ -1133,6 +1164,7 @@ class AutomationMapPanel extends HTMLElement {
       const nodeId = `node-${entityId.replace(/\./g, '_')}`;
       const config = this._automationConfigs[entityId];
       const areaId = getEntityArea(entityId);
+      const areaNodeId = areaId ? `node-area-${areaId}` : 'node-area-none';
 
       addNode(nodeId, {
         label: `${color.icon} ${this._shortName(friendly)}\n${isOn ? '● aktiv' : '○ inaktiv'}`,
@@ -1148,8 +1180,20 @@ class AutomationMapPanel extends HTMLElement {
         textColor: color.text,
         shape: 'roundrectangle',
         size: 52,
-        areaId: areaId || 'none',
-        parent: areaId ? `area-${areaId}` : 'area-none',
+      });
+
+      // Track area child
+      areasWithChildren.add(areaNodeId);
+
+      // Edge Area -> Automation
+      edges.push({
+        data: {
+          id: `edge-area-link-${entityId}`,
+          source: areaNodeId,
+          target: nodeId,
+          edgeColor: '#334155',
+          edgeType: 'structure',
+        }
       });
 
       // Extract and link trigger entities
@@ -1169,7 +1213,7 @@ class AutomationMapPanel extends HTMLElement {
                   id: `edge-trigger-${entityId}-${trigEnt}-${i}`,
                   source: targetNodeId,
                   target: nodeId,
-                  edgeColor: '#38bdf8',
+                  edgeColor: '#0ea5e9',
                   edgeType: 'trigger',
                 }
               });
@@ -1203,7 +1247,7 @@ class AutomationMapPanel extends HTMLElement {
                   id: `edge-condition-${entityId}-${condEnt}-${i}`,
                   source: targetNodeId,
                   target: nodeId,
-                  edgeColor: 'rgba(148, 163, 184, 0.5)',
+                  edgeColor: '#64748b',
                   edgeType: 'condition',
                 }
               });
@@ -1267,6 +1311,7 @@ class AutomationMapPanel extends HTMLElement {
       const color = getDomainColor(domain);
       const isHelper = HELPER_DOMAINS.has(domain);
       const areaId = getEntityArea(entityId);
+      const areaNodeId = areaId ? `node-area-${areaId}` : 'node-area-none';
 
       addNode(nodeId, {
         label: `${color.icon} ${this._shortName(friendly)}\n${stateVal}${unit ? ' ' + unit : ''}`,
@@ -1283,40 +1328,53 @@ class AutomationMapPanel extends HTMLElement {
         textColor: color.text,
         shape: isHelper ? 'diamond' : 'ellipse',
         size: isHelper ? 44 : 40,
-        areaId: areaId || 'none',
-        parent: areaId ? `area-${areaId}` : 'area-none',
+      });
+
+      // Track area child
+      areasWithChildren.add(areaNodeId);
+
+      // Edge Area -> Entity
+      edges.push({
+        data: {
+          id: `edge-area-link-${entityId}`,
+          source: areaNodeId,
+          target: nodeId,
+          edgeColor: '#334155',
+          edgeType: 'structure',
+        }
       });
     });
 
-    // ─── Add all to graph ───────────────────────────────────────
-    // Filter out group nodes if they have no children
-    const groupsWithChildren = new Set();
-    nodes.filter(n => !n.data.isGroup).forEach(n => {
-      groupsWithChildren.add(n.data.parent);
-    });
-
+    // ─── Add elements to graph ───────────────────────────────────
+    // Filter out Area nodes that have no child automations or entities
     const filteredNodes = nodes.filter(n => {
-      if (n.data.isGroup) {
-        return groupsWithChildren.has(n.data.id);
+      if (n.data.nodeType === 'area') {
+        return areasWithChildren.has(n.data.id);
       }
       return true;
     });
 
+    // Add structural edges from HA to the remaining Area nodes
+    filteredNodes.filter(n => n.data.nodeType === 'area').forEach(n => {
+      edges.push({
+        data: {
+          id: `edge-ha-area-${n.data.id}`,
+          source: 'homeassistant',
+          target: n.data.id,
+          edgeColor: '#334155',
+          edgeType: 'structure',
+        }
+      });
+    });
+
     this._cy.add(filteredNodes);
+
+    // Filter out edges that refer to non-existent nodes
     this._cy.add(edges.filter(e => {
-      const src = this._cy.$(`#${e.data.source}`);
-      const tgt = this._cy.$(`#${e.data.target}`);
+      const src = this._cy.getElementById(e.data.source);
+      const tgt = this._cy.getElementById(e.data.target);
       return src.length > 0 && tgt.length > 0;
     }));
-
-    // Remove orphan group nodes from the graph
-    const finalGroupsWithChildren = new Set();
-    this._cy.nodes().not('[?isGroup]').forEach(n => {
-      if (n.data('parent')) finalGroupsWithChildren.add(n.data('parent'));
-    });
-    this._cy.nodes('[?isGroup]').forEach(n => {
-      if (!finalGroupsWithChildren.has(n.id())) n.remove();
-    });
 
     this._runLayout();
     this._applyFilters();
@@ -1361,8 +1419,11 @@ class AutomationMapPanel extends HTMLElement {
     const showEntity = this._filterTypes.has('entity');
     const showHelper = this._filterTypes.has('helper');
 
-    this._cy.nodes().not('[?isGroup]').forEach(node => {
+    // First, filter regular automation/entity/helper nodes
+    this._cy.nodes().forEach(node => {
       const type = node.data('nodeType');
+      if (type === 'core' || type === 'area') return; // Skip structural nodes
+
       const friendly = (node.data('friendly') || '').toLowerCase();
       const entityId = (node.data('entityId') || '').toLowerCase();
 
@@ -1379,15 +1440,26 @@ class AutomationMapPanel extends HTMLElement {
       }
     });
 
-    // Hide/show group nodes based on whether they have visible children
-    this._cy.nodes('[?isGroup]').forEach(groupNode => {
-      const visibleChildren = groupNode.children().not('.hidden');
+    // Hide/show Area nodes based on whether they have visible non-structural neighbors
+    this._cy.nodes('[nodeType="area"]').forEach(areaNode => {
+      const visibleChildren = areaNode.neighborhood('node').not('[nodeType="core"]').not('.hidden');
       if (visibleChildren.length === 0) {
-        groupNode.addClass('hidden');
+        areaNode.addClass('hidden');
       } else {
-        groupNode.removeClass('hidden');
+        areaNode.removeClass('hidden');
       }
     });
+
+    // Hide core node if no areas are visible
+    const coreNode = this._cy.$('[nodeType="core"]');
+    if (coreNode.length) {
+      const visibleAreas = this._cy.nodes('[nodeType="area"]').not('.hidden');
+      if (visibleAreas.length === 0) {
+        coreNode.addClass('hidden');
+      } else {
+        coreNode.removeClass('hidden');
+      }
+    }
 
     // Hide edges where either endpoint is hidden
     this._cy.edges().forEach(edge => {
