@@ -2,11 +2,13 @@
   "domain": "automation_map",
   "config_flow": true,
   "name": "Automation Map",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "documentation": "https://github.com/MovingLlama/automation-map",
   "issue_tracker": "https://github.com/MovingLlama/automation-map/issues",
   "dependencies": [],
-  "codeowners": ["@MovingLlama"],
+  "codeowners": [
+    "@MovingLlama"
+  ],
   "requirements": [],
   "iot_class": "local_push",
   "homeassistant": "2024.1.0"
