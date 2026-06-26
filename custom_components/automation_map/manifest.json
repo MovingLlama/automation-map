@@ -2,7 +2,7 @@
   "domain": "automation_map",
   "config_flow": true,
   "name": "Automation Map",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "documentation": "https://github.com/MovingLlama/automation-map",
   "issue_tracker": "https://github.com/MovingLlama/automation-map/issues",
   "dependencies": [],
