@@ -30,10 +30,12 @@ const STYLES = `
   /* ─── Toolbar ─────────────────────────────────────────── */
   .am-toolbar {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 12px;
-    padding: 0 20px;
-    height: 56px;
+    padding: 8px 20px;
+    min-height: 56px;
+    height: auto;
     flex-shrink: 0;
     background: var(--app-header-background-color, #1e293b);
     border-bottom: 1px solid var(--divider-color, rgba(255,255,255,0.08));
@@ -49,6 +51,7 @@ const STYLES = `
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-shrink: 0;
   }
 
   .am-toolbar-title svg {
@@ -63,12 +66,14 @@ const STYLES = `
     display: flex;
     align-items: center;
     gap: 6px;
+    flex-shrink: 0;
   }
 
   .am-filter-label {
     font-size: 12px;
     color: var(--secondary-text-color, #94a3b8);
     white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .am-btn {
@@ -85,6 +90,7 @@ const STYLES = `
     cursor: pointer;
     transition: all 0.15s ease;
     white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .am-btn:hover {
@@ -452,6 +458,7 @@ const STYLES = `
     border-radius: 8px;
     padding: 5px 10px;
     transition: border-color 0.15s;
+    flex-shrink: 0;
   }
 
   .am-search:focus-within { border-color: var(--primary-color, #38bdf8); }
@@ -800,7 +807,7 @@ class AutomationMapPanel extends HTMLElement {
             'border-color': 'data(borderColor)',
             'border-width': 2,
             'label': 'data(label)',
-            'color': 'data(textColor)',
+            'color': 'var(--primary-text-color, #f1f5f9)',
             'font-size': '11px',
             'text-valign': 'bottom',
             'text-halign': 'center',
@@ -822,7 +829,7 @@ class AutomationMapPanel extends HTMLElement {
             'border-width': 1,
             'border-style': 'dashed',
             'label': 'data(label)',
-            'color': '#64748b',
+            'color': 'var(--secondary-text-color, #64748b)',
             'font-size': '13px',
             'font-weight': 'bold',
             'text-valign': 'top',
@@ -865,7 +872,7 @@ class AutomationMapPanel extends HTMLElement {
           style: {
             'label': 'data(label)',
             'font-size': '9px',
-            'color': '#64748b',
+            'color': 'var(--secondary-text-color, #64748b)',
             'text-rotation': 'autorotate',
             'text-background-color': 'transparent',
           }
@@ -1018,6 +1025,7 @@ class AutomationMapPanel extends HTMLElement {
     const nodes = [];
     const edges = [];
     const addedNodes = new Set();
+    const connectedEntityIds = new Set();
 
     // Helper: add a node safely
     const addNode = (id, data) => {
@@ -1092,6 +1100,7 @@ class AutomationMapPanel extends HTMLElement {
           }
           trigEntityIds.forEach(trigEnt => {
             if (this._stateCache[trigEnt]) {
+              connectedEntityIds.add(trigEnt);
               const targetNodeId = `node-${trigEnt.replace(/\./g, '_')}`;
               edges.push({
                 data: {
@@ -1100,6 +1109,40 @@ class AutomationMapPanel extends HTMLElement {
                   target: nodeId,
                   edgeColor: '#38bdf8',
                   edgeType: 'trigger',
+                }
+              });
+            }
+          });
+        });
+      }
+
+      // Extract and link condition entities
+      if (config?.condition) {
+        const conditions = Array.isArray(config.condition) ? config.condition : [config.condition];
+        conditions.forEach((cond, i) => {
+          const condEntityIds = [];
+          const scanCondition = (c) => {
+            if (!c) return;
+            if (c.entity_id) {
+              (Array.isArray(c.entity_id) ? c.entity_id : [c.entity_id]).forEach(id => condEntityIds.push(id));
+            }
+            if (c.conditions) {
+              c.conditions.forEach(scanCondition);
+            }
+          };
+          scanCondition(cond);
+
+          condEntityIds.forEach(condEnt => {
+            if (this._stateCache[condEnt]) {
+              connectedEntityIds.add(condEnt);
+              const targetNodeId = `node-${condEnt.replace(/\./g, '_')}`;
+              edges.push({
+                data: {
+                  id: `edge-condition-${entityId}-${condEnt}-${i}`,
+                  source: targetNodeId,
+                  target: nodeId,
+                  edgeColor: 'rgba(148, 163, 184, 0.5)',
+                  edgeType: 'condition',
                 }
               });
             }
@@ -1119,6 +1162,7 @@ class AutomationMapPanel extends HTMLElement {
           }
           targetIds.forEach(targEnt => {
             if (this._stateCache[targEnt]) {
+              connectedEntityIds.add(targEnt);
               const targetNodeId = `node-${targEnt.replace(/\./g, '_')}`;
               edges.push({
                 data: {
@@ -1148,6 +1192,9 @@ class AutomationMapPanel extends HTMLElement {
       const domain = entityId.split('.')[0];
       if (!SHOW_DOMAINS.has(domain)) return;
       if (entityId.startsWith('automation.')) return;
+
+      // Only display entities that are connected to at least one automation
+      if (!connectedEntityIds.has(entityId)) return;
 
       const nodeId = `node-${entityId.replace(/\./g, '_')}`;
       if (addedNodes.has(nodeId)) return; // already added (edge target)
@@ -1265,6 +1312,16 @@ class AutomationMapPanel extends HTMLElement {
         node.addClass('hidden');
       } else {
         node.removeClass('hidden');
+      }
+    });
+
+    // Hide/show group nodes based on whether they have visible children
+    this._cy.nodes('[?isGroup]').forEach(groupNode => {
+      const visibleChildren = groupNode.children().not('.hidden');
+      if (visibleChildren.length === 0) {
+        groupNode.addClass('hidden');
+      } else {
+        groupNode.removeClass('hidden');
       }
     });
 
