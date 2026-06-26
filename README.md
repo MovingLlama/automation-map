@@ -1,8 +1,15 @@
 # Automation Map
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
-[![GitHub release](https://img.shields.io/github/release/MovingLlama/automation-map.svg)](https://github.com/MovingLlama/automation-map/releases/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+<p align="center">
+  <img src="docs/logo.png" alt="Automation Map Logo" width="180"/>
+</p>
+
+<p align="center">
+  <a href="https://github.com/hacs/integration"><img src="https://img.shields.io/badge/HACS-Custom-orange.svg" alt="HACS Badge"/></a>
+  <a href="https://github.com/MovingLlama/automation-map/releases/"><img src="https://img.shields.io/github/release/MovingLlama/automation-map.svg" alt="GitHub Release"/></a>
+  <a href="https://github.com/MovingLlama/automation-map/actions/workflows/validate.yml"><img src="https://github.com/MovingLlama/automation-map/actions/workflows/validate.yml/badge.svg" alt="Validate"/></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License"/></a>
+</p>
 
 **Automation Map** ist eine Home Assistant Custom Integration, die eine interaktive Prozesslandkarte aller Automatisierungen, Entitäten und Helfer als Graph-Visualisierung in der HA-Seitenleiste anzeigt.
 

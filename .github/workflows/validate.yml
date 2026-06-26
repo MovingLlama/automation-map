@@ -1,0 +1,138 @@
+name: ✅ Validate
+
+# Runs on every PR and push to main — validates integration structure
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    name: Validate Integration
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: ⬇️ Checkout
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 📦 Install validation tools
+        run: |
+          pip install homeassistant --quiet 2>/dev/null || true
+          pip install colorlog voluptuous --quiet
+
+      - name: 📋 Validate manifest.json
+        run: |
+          python3 - <<'EOF'
+          import json, sys
+
+          REQUIRED_FIELDS = ['domain', 'name', 'version', 'documentation',
+                             'issue_tracker', 'codeowners', 'requirements',
+                             'iot_class', 'homeassistant']
+
+          with open('custom_components/automation_map/manifest.json') as f:
+              manifest = json.load(f)
+
+          errors = []
+          for field in REQUIRED_FIELDS:
+              if field not in manifest:
+                  errors.append(f"Missing required field: {field}")
+
+          # Validate version format (semver)
+          import re
+          version = manifest.get('version', '')
+          if not re.match(r'^\d+\.\d+\.\d+$', version):
+              errors.append(f"Invalid version format: {version} (expected x.y.z)")
+
+          if errors:
+              print("❌ manifest.json validation failed:")
+              for e in errors:
+                  print(f"   - {e}")
+              sys.exit(1)
+          else:
+              print(f"✅ manifest.json valid (version: {version})")
+          EOF
+
+      - name: 📋 Validate hacs.json
+        run: |
+          python3 - <<'EOF'
+          import json, sys
+
+          REQUIRED_FIELDS = ['name', 'homeassistant']
+
+          with open('hacs.json') as f:
+              data = json.load(f)
+
+          errors = []
+          for field in REQUIRED_FIELDS:
+              if field not in data:
+                  errors.append(f"Missing required field: {field}")
+
+          if errors:
+              print("❌ hacs.json validation failed:")
+              for e in errors:
+                  print(f"   - {e}")
+              sys.exit(1)
+          else:
+              print(f"✅ hacs.json valid")
+          EOF
+
+      - name: 🐍 Validate Python syntax
+        run: |
+          python3 -m py_compile custom_components/automation_map/__init__.py
+          python3 -m py_compile custom_components/automation_map/config_flow.py
+          python3 -m py_compile custom_components/automation_map/const.py
+          echo "✅ Python syntax OK"
+
+      - name: 📂 Validate required files
+        run: |
+          REQUIRED=(
+            "custom_components/automation_map/__init__.py"
+            "custom_components/automation_map/manifest.json"
+            "custom_components/automation_map/config_flow.py"
+            "custom_components/automation_map/const.py"
+            "custom_components/automation_map/www/automation-map-panel.js"
+            "hacs.json"
+            "README.md"
+            "LICENSE"
+          )
+          ALL_OK=true
+          for f in "${REQUIRED[@]}"; do
+            if [ -f "$f" ]; then
+              echo "✅ $f"
+            else
+              echo "❌ Missing: $f"
+              ALL_OK=false
+            fi
+          done
+          $ALL_OK || exit 1
+
+      - name: 🔤 Validate translations
+        run: |
+          python3 - <<'EOF'
+          import json, sys, os
+
+          trans_dir = 'custom_components/automation_map/translations'
+          errors = []
+
+          for lang_file in os.listdir(trans_dir):
+              if not lang_file.endswith('.json'):
+                  continue
+              path = os.path.join(trans_dir, lang_file)
+              try:
+                  with open(path) as f:
+                      data = json.load(f)
+                  print(f"✅ {lang_file}")
+              except json.JSONDecodeError as e:
+                  errors.append(f"Invalid JSON in {lang_file}: {e}")
+
+          if errors:
+              for e in errors:
+                  print(f"❌ {e}")
+              sys.exit(1)
+          EOF
